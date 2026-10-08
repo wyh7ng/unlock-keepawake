@@ -295,7 +295,7 @@ func main() {
 
 	if err := (MainWindow{
 		AssignTo: &mw,
-		Title:    "unlock",
+		Title:    "unlock-keepawake",
 		Icon:     appIcon,
 		Visible:  startVisible,
 		MinSize:  Size{Width: 460, Height: 280},
@@ -421,7 +421,7 @@ func main() {
 		if icon != nil {
 			_ = ni.SetIcon(icon)
 		}
-		_ = ni.SetToolTip("unlock")
+		_ = ni.SetToolTip("unlock-keepawake")
 		_ = ni.SetVisible(true)
 
 		showAction := walk.NewAction()

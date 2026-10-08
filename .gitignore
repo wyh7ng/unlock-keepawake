@@ -1,6 +1,6 @@
 # build output
-/unlock.exe
-/unlock-new.exe
+/unlock-keepawake.exe
+/unlock-keepawake-new.exe
 /signed/
 
 # runtime config

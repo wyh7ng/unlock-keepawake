@@ -6,7 +6,7 @@
   },
   "RT_MANIFEST": {
     "#1": {
-      "0409": "../unlock.exe.manifest"
+      "0409": "../unlock-keepawake.exe.manifest"
     }
   },
   "RT_VERSION": {
@@ -18,13 +18,13 @@
         },
         "info": {
           "0409": {
-            "CompanyName": "The unlock Authors",
-            "FileDescription": "unlock - keep-awake utility",
+            "CompanyName": "The unlock-keepawake Authors",
+            "FileDescription": "unlock-keepawake - keep-awake utility",
             "FileVersion": "1.0.0.0",
-            "InternalName": "unlock",
-            "LegalCopyright": "Copyright (C) 2026 The unlock Authors",
-            "OriginalFilename": "unlock.exe",
-            "ProductName": "unlock",
+            "InternalName": "unlock-keepawake",
+            "LegalCopyright": "Copyright (C) 2026 The unlock-keepawake Authors",
+            "OriginalFilename": "unlock-keepawake.exe",
+            "ProductName": "unlock-keepawake",
             "ProductVersion": "1.0.0.0"
           }
         }

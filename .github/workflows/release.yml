@@ -8,7 +8,7 @@
 # To ENABLE signing (after SignPath Foundation approval):
 #   Repository secrets   : SIGNPATH_API_TOKEN              (from SignPath UI)
 #   Repository variables : SIGNPATH_ORGANIZATION_ID        (SignPath org id)
-#                          SIGNPATH_PROJECT_SLUG           (e.g. unlock)
+#                          SIGNPATH_PROJECT_SLUG           (e.g. unlock-keepawake)
 #                          SIGNPATH_SIGNING_POLICY_SLUG    (e.g. release-signing)
 #   Also: install the SignPath GitHub App for this repository.
 #
@@ -73,15 +73,15 @@ jobs:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: '0'
-        run: go build -trimpath -ldflags "-s -w -H windowsgui" -o unlock.exe .
+        run: go build -trimpath -ldflags "-s -w -H windowsgui" -o unlock-keepawake.exe .
 
       # ── 1) upload the UNSIGNED artifact so SignPath can verify its origin ──
       - name: Upload unsigned artifact
         id: upload-unsigned-artifact
         uses: actions/upload-artifact@v7
         with:
-          name: unlock-unsigned
-          path: unlock.exe
+          name: unlock-keepawake-unsigned
+          path: unlock-keepawake.exe
           if-no-files-found: error
 
       # ── 2) decide whether SignPath is configured ──
@@ -106,7 +106,7 @@ jobs:
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'unlock' }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'unlock-keepawake' }}
           signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
           github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
           wait-for-completion: true
@@ -118,10 +118,10 @@ jobs:
         run: |
           mkdir -p dist
           if [ "${{ steps.signcfg.outputs.enabled }}" = "true" ]; then
-            cp ./signed/unlock.exe dist/unlock.exe
+            cp ./signed/unlock-keepawake.exe dist/unlock-keepawake.exe
             echo "signed=true" >> "$GITHUB_OUTPUT"
           else
-            cp unlock.exe dist/unlock.exe
+            cp unlock-keepawake.exe dist/unlock-keepawake.exe
             echo "signed=false" >> "$GITHUB_OUTPUT"
           fi
           ls -l dist/
@@ -129,12 +129,12 @@ jobs:
       - name: Upload release artifact
         uses: actions/upload-artifact@v7
         with:
-          name: unlock-release
-          path: dist/unlock.exe
+          name: unlock-keepawake-release
+          path: dist/unlock-keepawake.exe
           if-no-files-found: error
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/unlock.exe
+          files: dist/unlock-keepawake.exe

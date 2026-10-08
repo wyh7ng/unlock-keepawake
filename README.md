@@ -1,4 +1,4 @@
-# unlock
+# unlock-keepawake
 
 A tiny Windows tray utility that keeps your session awake by injecting an
 **F15** keypress on a fixed interval. It exists to stop the screen from locking
@@ -22,7 +22,7 @@ Built with Go and [`github.com/lxn/walk`](https://github.com/lxn/walk).
 
 ## Usage
 
-1. Download `unlock.exe` from the [Releases](../../releases) page.
+1. Download `unlock-keepawake.exe` from the [Releases](../../releases) page.
 2. Run it. Pick an interval and press **开始 / Start**.
 3. The window minimizes to the tray; right-click the tray icon to show it again
    or to quit.
@@ -63,7 +63,7 @@ go-winres make --in winres/winres.json --arch amd64 --out rsrc
 
 # cross-compile
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
-  go build -trimpath -ldflags "-s -w -H windowsgui" -o unlock.exe .
+  go build -trimpath -ldflags "-s -w -H windowsgui" -o unlock-keepawake.exe .
 ```
 
 The generated `rsrc_windows_amd64.syso` is auto-linked by the Go toolchain and
@@ -84,7 +84,7 @@ Release binaries are built in CI and signed through
 
 ## 中文说明
 
-`unlock` 是一个 Windows 托盘小工具，按固定间隔（默认 4 分钟）模拟按一次 **F15** 键，
+`unlock-keepawake` 是一个 Windows 托盘小工具，按固定间隔（默认 4 分钟）模拟按一次 **F15** 键，
 用来阻止系统空闲锁屏或休眠，即常见的“防锁屏 / 保活”工具。
 
 - 关闭窗口只会最小化到托盘；右键托盘图标可显示窗口或退出。

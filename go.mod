@@ -1,4 +1,4 @@
-module unlock
+module github.com/wyh7ng/unlock-keepawake
 
 go 1.22
 
