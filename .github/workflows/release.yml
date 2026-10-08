@@ -1,16 +1,20 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# SignPath code signing for OSS releases.
+# Build + (optional) SignPath code signing for OSS releases.
 #
-# BEFORE THIS WORKS, fill in the placeholders below:
-#   1. Add repo secret  SIGNPATH_API_TOKEN            (from SignPath UI)
-#   2. Set organization-id / project-slug / signing-policy-slug
-#   3. Make sure the SignPath GitHub App is installed for the repo
-#   4. Confirm the action major versions against the SignPath docs:
-#         https://docs.signpath.io/trusted-build-systems/github
+# The workflow is GREEN even before SignPath is configured: if the signing
+# credentials are absent it simply publishes an UNSIGNED build and emits a
+# warning. Once configured it automatically signs.
 #
-# OSS rule from SignPath Foundation: the signing request must originate from a
-# GitHub-hosted runner, and the unsigned build must be uploaded as a workflow
-# artifact first (SignPath verifies the origin from GitHub metadata).
+# To ENABLE signing (after SignPath Foundation approval):
+#   Repository secrets   : SIGNPATH_API_TOKEN              (from SignPath UI)
+#   Repository variables : SIGNPATH_ORGANIZATION_ID        (SignPath org id)
+#                          SIGNPATH_PROJECT_SLUG           (e.g. unlock)
+#                          SIGNPATH_SIGNING_POLICY_SLUG    (e.g. release-signing)
+#   Also: install the SignPath GitHub App for this repository.
+#
+# OSS rule: the signing request must originate from a GitHub-hosted runner and
+# the unsigned build must be uploaded as a workflow artifact first.
+# Docs: https://docs.signpath.io/trusted-build-systems/github
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: release
@@ -26,14 +30,14 @@ permissions:
 
 jobs:
   build-sign-release:
-    # Must be a GitHub-hosted runner (OSS: self-hosted runners are not allowed).
-    runs-on: ubuntu-latest
+    # Pinned image: avoids the ubuntu-latest -> Ubuntu 26 migration surprise.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: '1.22'
 
@@ -74,33 +78,63 @@ jobs:
       # ── 1) upload the UNSIGNED artifact so SignPath can verify its origin ──
       - name: Upload unsigned artifact
         id: upload-unsigned-artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unlock-unsigned
           path: unlock.exe
           if-no-files-found: error
 
-      # ── 2) submit the signing request; SignPath returns the signed file ──
+      # ── 2) decide whether SignPath is configured ──
+      - name: Detect SignPath configuration
+        id: signcfg
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+        run: |
+          if [ -n "$SIGNPATH_API_TOKEN" ] && [ -n "$SIGNPATH_ORGANIZATION_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "SignPath signing: ENABLED"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=SignPath not configured::Signing skipped; releasing an UNSIGNED build. Set SIGNPATH_API_TOKEN and SIGNPATH_ORGANIZATION_ID to enable signing."
+          fi
+
+      # ── 3) submit the signing request (only when configured) ──
       - name: Submit signing request
-        uses: signpath/github-action-submit-signing-request@v1
+        if: steps.signcfg.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: '<SIGNPATH_ORGANIZATION_ID>'      # TODO
-          project-slug: 'unlock'                              # TODO
-          signing-policy-slug: 'release-signing'              # TODO
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'unlock' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
           github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: './signed'
 
-      - name: Upload signed artifact
-        uses: actions/upload-artifact@v4
+      # ── 4) stage whichever build we are shipping ──
+      - name: Stage release artifact
+        id: stage
+        run: |
+          mkdir -p dist
+          if [ "${{ steps.signcfg.outputs.enabled }}" = "true" ]; then
+            cp ./signed/unlock.exe dist/unlock.exe
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            cp unlock.exe dist/unlock.exe
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+          ls -l dist/
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v7
         with:
-          name: unlock-signed
-          path: ./signed/unlock.exe
+          name: unlock-release
+          path: dist/unlock.exe
           if-no-files-found: error
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          files: ./signed/unlock.exe
+          files: dist/unlock.exe
