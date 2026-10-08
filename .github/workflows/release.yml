@@ -1,0 +1,106 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SignPath code signing for OSS releases.
+#
+# BEFORE THIS WORKS, fill in the placeholders below:
+#   1. Add repo secret  SIGNPATH_API_TOKEN            (from SignPath UI)
+#   2. Set organization-id / project-slug / signing-policy-slug
+#   3. Make sure the SignPath GitHub App is installed for the repo
+#   4. Confirm the action major versions against the SignPath docs:
+#         https://docs.signpath.io/trusted-build-systems/github
+#
+# OSS rule from SignPath Foundation: the signing request must originate from a
+# GitHub-hosted runner, and the unsigned build must be uploaded as a workflow
+# artifact first (SignPath verifies the origin from GitHub metadata).
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to publish the GitHub release
+
+jobs:
+  build-sign-release:
+    # Must be a GitHub-hosted runner (OSS: self-hosted runners are not allowed).
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V="0.0.0"
+          fi
+          IFS='.' read -ra P <<< "$V"
+          while [ "${#P[@]}" -lt 4 ]; do P+=("0"); done
+          FV="${P[0]}.${P[1]}.${P[2]}.${P[3]}"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "file_version=$FV" >> "$GITHUB_OUTPUT"
+
+      - name: Install go-winres
+        run: go install github.com/tc-hib/go-winres@latest
+
+      - name: Generate Windows resources (icon + manifest + version)
+        run: |
+          "$(go env GOPATH)/bin/go-winres" make \
+            --in winres/winres.json \
+            --arch amd64 \
+            --out rsrc \
+            --file-version "${{ steps.ver.outputs.file_version }}" \
+            --product-version "${{ steps.ver.outputs.file_version }}"
+
+      - name: Build
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags "-s -w -H windowsgui" -o unlock.exe .
+
+      # ── 1) upload the UNSIGNED artifact so SignPath can verify its origin ──
+      - name: Upload unsigned artifact
+        id: upload-unsigned-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: unlock-unsigned
+          path: unlock.exe
+          if-no-files-found: error
+
+      # ── 2) submit the signing request; SignPath returns the signed file ──
+      - name: Submit signing request
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: '<SIGNPATH_ORGANIZATION_ID>'      # TODO
+          project-slug: 'unlock'                              # TODO
+          signing-policy-slug: 'release-signing'              # TODO
+          github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: './signed'
+
+      - name: Upload signed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: unlock-signed
+          path: ./signed/unlock.exe
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./signed/unlock.exe

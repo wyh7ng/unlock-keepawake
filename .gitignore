@@ -1,0 +1,14 @@
+# build output
+/unlock.exe
+/unlock-new.exe
+/signed/
+
+# runtime config
+/.unlock.json
+
+# backups
+*.bak
+
+# OS / editor
+.DS_Store
+Thumbs.db
